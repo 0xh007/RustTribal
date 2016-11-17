@@ -46,8 +46,12 @@ namespace Oxide.Plugins
         }
 
         [UsedImplicitly]
-        private void OnPlayerInit(BasePlayer player)
+        private void OnPlayerConnected(Message packet)
         {
+            var username = packet.connection.username;
+            var userid = packet.connection.userid;
+            Puts($"User: {username} Id: {userid} Connected Successfully!");
+            game.IncomingPlayer();
         }
 
         /// <summary>
@@ -134,7 +138,9 @@ namespace Oxide.Plugins
                 throw new NotImplementedException();
             }
 
-            public bool IsPlayerAlive(ulong id)
+            public bool IsPlayerAlive(ulong id) => world.IsPersonAlive(id);
+
+            public void IncomingPlayer()
             {
                 throw new NotImplementedException();
             }
@@ -155,9 +161,11 @@ namespace Oxide.Plugins
 
             public Person FindPersonById(ulong id)
             {
-                var person = people.FirstOrDefault(x => x.Player.userid == id);
+                var person = people.FirstOrDefault(x => x.RPlayer.Id == id.ToString());
                 return person;
             }
+
+            public bool IsPersonAlive(ulong id) => people.Any(x => x.RPlayer.Id == id.ToString() && x.IsAlive);
         }
 
         #endregion World Class
@@ -216,12 +224,14 @@ namespace Oxide.Plugins
         {
             private Demeanor demeanor;
 
-            private bool isAlive;
+            public bool IsAlive { get; private set; }
 
-            public BasePlayer Player { get; private set; }
+            public RustPlayer RPlayer { get; private set; }
 
-            public Person()
+            public Person(ulong userId, string userName)
             {
+                RPlayer = new RustPlayer(userId, userName);
+
             }
 
             private enum Demeanor
