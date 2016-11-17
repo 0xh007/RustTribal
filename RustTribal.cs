@@ -175,8 +175,18 @@ namespace Oxide.Plugins
             public bool IsClientAuthorized(Connection packet, Game game)
             {
                 var id = packet.userid;
-                return (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
-                || game.IsBirthPlaceAvailable();
+                var authorized = false;
+
+                if (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
+                {
+                    authorized = true;
+                }
+                else if (game.IsBirthPlaceAvailable())
+                {
+                    authorized = true;
+                }
+
+                return authorized;
             }
         }
 
@@ -205,6 +215,8 @@ namespace Oxide.Plugins
         public class Person
         {
             private Demeanor demeanor;
+
+            private bool isAlive;
 
             public BasePlayer Player { get; private set; }
 
