@@ -35,8 +35,7 @@ namespace Oxide.Plugins
         [UsedImplicitly]
         private string CanClientLogin(Connection packet)
         {
-            //Todo: Make login checks
-            return null; // if client is allowed to login
+            return gateWay.IsClientAuthorized(packet, game) ? null : "Unauthorized";
         }
 
         [UsedImplicitly]
@@ -48,10 +47,9 @@ namespace Oxide.Plugins
         [UsedImplicitly]
         private void OnPlayerConnected(Message packet)
         {
-            var username = packet.connection.username;
-            var userid = packet.connection.userid;
-            Puts($"User: {username} Id: {userid} Connected Successfully!");
-            game.IncomingPlayer();
+            var userName = packet.connection.username;
+            var userId = packet.connection.userid;
+            game.IncomingPlayer(userId, userName);
         }
 
         /// <summary>
@@ -101,8 +99,6 @@ namespace Oxide.Plugins
 
         public class Game
         {
-            public object isPlayerAlive;
-
             #region Game Members
 
             private World world;
@@ -138,11 +134,24 @@ namespace Oxide.Plugins
                 throw new NotImplementedException();
             }
 
-            public bool IsPlayerAlive(ulong id) => world.IsPersonAlive(id);
-
-            public void IncomingPlayer()
+            public bool IsPlayerAlive(ulong id)
             {
-                throw new NotImplementedException();
+                var isAlive = false;
+                var player = world.FindPersonById(id);
+                if ((player != null) && player.IsAlive)
+                {
+                    isAlive = true;
+                }
+
+                return isAlive;
+            }
+
+            public void IncomingPlayer(ulong userId, string userName)
+            {
+                if (!IsPlayerAlive(userId))
+                {
+                    world.AddNewPerson(userId, userName);
+                }
             }
         }
 
@@ -152,20 +161,20 @@ namespace Oxide.Plugins
 
         public class World
         {
-            private List<Person> people;
+            private List<Person> Persons;
 
 
             public World()
             {
             }
 
-            public Person FindPersonById(ulong id)
-            {
-                var person = people.FirstOrDefault(x => x.RPlayer.Id == id.ToString());
-                return person;
-            }
+            public Person FindPersonById(ulong id) => Persons.FirstOrDefault(x => x.RPlayer.Id == id.ToString());
 
-            public bool IsPersonAlive(ulong id) => people.Any(x => x.RPlayer.Id == id.ToString() && x.IsAlive);
+            public void AddNewPerson(ulong userId, string userName)
+            {
+                var newPerson = new Person(userId, userName);
+                Persons.Add(newPerson);
+            }
         }
 
         #endregion World Class
@@ -231,7 +240,6 @@ namespace Oxide.Plugins
             public Person(ulong userId, string userName)
             {
                 RPlayer = new RustPlayer(userId, userName);
-
             }
 
             private enum Demeanor
