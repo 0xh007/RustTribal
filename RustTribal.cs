@@ -35,7 +35,16 @@ namespace Oxide.Plugins
         [UsedImplicitly]
         private string CanClientLogin(Connection packet)
         {
-            return gateWay.IsClientAuthorized(packet, game) ? null : "Unauthorized";
+            var message = gateWay.IsClientAuthorized(packet, game);
+            if (message.Response == AuthMessage.ResponseType.Rejected)
+            {
+                return message.GetMessage();
+            }
+            else
+            {
+                //Todo: Send client a welcome message
+                return null;
+            }
         }
 
         [UsedImplicitly]
@@ -189,21 +198,32 @@ namespace Oxide.Plugins
             /// <param name="packet">The client connection packet</param>
             /// <param name="game">The Rust Tribal Game object</param>
             /// <returns>Returns true if authorized, false if rejected</returns>
-            public bool IsClientAuthorized(Connection packet, Game game)
+            public AuthMessage IsClientAuthorized(Connection packet, Game game)
             {
+                AuthMessage authMessage;
                 var id = packet.userid;
                 var authorized = false;
 
                 if (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
                 {
-                    authorized = true;
+                    authMessage = new AuthMessage(
+                        AuthMessage.ResponseType.Accepted,
+                        "Welcome back to Rust Tribal.");
                 }
                 else if (game.IsBirthPlaceAvailable())
                 {
-                    authorized = true;
+                    authMessage = new AuthMessage(
+                        AuthMessage.ResponseType.Accepted,
+                        "Welcome to Rust Tribal.");
+                }
+                else
+                {
+                    authMessage = new AuthMessage(
+                        AuthMessage.ResponseType.Rejected,
+                        "There are currently no spawn points available.\n Visit RustTribal.com to join the queue.");
                 }
 
-                return authorized;
+                return authMessage;
             }
         }
 
@@ -254,6 +274,30 @@ namespace Oxide.Plugins
         }
 
         #endregion Person Class
+
+        #region Auth Message
+
+        public class AuthMessage
+        {
+            public ResponseType Response { get; private set; }
+            public string Reason { get; private set; }
+
+            public enum ResponseType
+            {
+                Accepted,
+                Rejected
+            }
+
+            public AuthMessage(ResponseType type, string reason)
+            {
+                Response = type;
+                Reason = reason;
+            }
+
+            public string GetMessage() => $"{Response}: {Reason}.";
+        }
+
+        #endregion
     }
 
 }
