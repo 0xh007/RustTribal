@@ -235,6 +235,7 @@ namespace Oxide.Plugins
 
             public bool IsAlive { get; private set; }
 
+            //Todo: Needs testing to understand functionality
             public RustPlayer RPlayer { get; private set; }
 
             public Person(ulong userId, string userName)
