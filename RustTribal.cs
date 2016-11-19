@@ -19,6 +19,8 @@ namespace Oxide.Plugins
 
     using Rust;
 
+    using UnityEngine.Analytics;
+
     [Info("RustTribal", "*Vic", 0.1)]
     [Description("Rust Tribal")]
     public class RustTribal : RustPlugin
@@ -110,6 +112,11 @@ namespace Oxide.Plugins
         {
             #region Game Members
 
+            /// <summary>
+            /// Identifier for the Rust Tribal Game Instance
+            /// </summary>
+            private Guid gameId;
+
             private World world;
 
             #endregion Game Members
@@ -118,6 +125,7 @@ namespace Oxide.Plugins
 
             public Game()
             {
+                gameId = Guid.NewGuid();
                 world = new World();
             }
 
@@ -170,19 +178,49 @@ namespace Oxide.Plugins
 
         public class World
         {
-            private List<Person> Persons;
+            private const int MaxInitialTribes = 2;
+
+            private bool isWorldPopulating;
+
+            private List<Person> persons;
+
+            private List<Tribe> tribes;
 
 
             public World()
             {
+                isWorldPopulating = true;
+                persons = new List<Person>();
+                tribes = new List<Tribe>();
+
+                AddNewTribe("Alpha");
+                AddNewTribe("Bravo");
             }
 
-            public Person FindPersonById(ulong id) => Persons.FirstOrDefault(x => x.RPlayer.Id == id.ToString());
+            public Person FindPersonById(ulong id) => persons.FirstOrDefault(x => x.RPlayer.Id == id.ToString());
+
+            public Tribe FindPopulatingTribe() => tribes.FirstOrDefault(x => x.)
 
             public void AddNewPerson(ulong userId, string userName)
             {
                 var newPerson = new Person(userId, userName);
-                Persons.Add(newPerson);
+                persons.Add(newPerson);
+
+                if (isWorldPopulating)
+                {
+
+                }
+            }
+
+            private void AddNewTribalMember(Person newPerson)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void AddNewTribe(string newTribeName)
+            {
+                var newTribe = new Tribe(newTribeName);
+                tribes.Add(newTribe);
             }
         }
 
@@ -202,7 +240,6 @@ namespace Oxide.Plugins
             {
                 AuthMessage authMessage;
                 var id = packet.userid;
-                var authorized = false;
 
                 if (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
                 {
@@ -233,15 +270,20 @@ namespace Oxide.Plugins
 
         public class Tribe
         {
+            private const int maxInitialTribalMembers = 4;
+
             private string tribeName;
 
             private List<Person> members;
 
-
-            public Tribe()
+            public Tribe(string newTribeName)
             {
+                tribeName = newTribeName;
             }
 
+            private int GetNumMales() => members.Count(x => x.Gender == Person.PlayerGender.Male);
+
+            private int GetNumFemales() => members.Count(x => x.Gender == Person.PlayerGender.Female);
         }
 
         #endregion Tribe Class
@@ -253,7 +295,11 @@ namespace Oxide.Plugins
         {
             private Demeanor demeanor;
 
+            //Todo: Set Gender
+            public PlayerGender Gender { get; private set; }
+
             public bool IsAlive { get; private set; }
+
 
             //Todo: Needs testing to understand functionality
             public RustPlayer RPlayer { get; private set; }
@@ -270,6 +316,12 @@ namespace Oxide.Plugins
                 Neutral,
                 Warm,
                 Friendly
+            }
+
+            public enum PlayerGender
+            {
+                Male,
+                Female
             }
         }
 
