@@ -199,17 +199,12 @@ namespace Oxide.Plugins
 
             public Person FindPersonById(ulong id) => persons.FirstOrDefault(x => x.RPlayer.Id == id.ToString());
 
-            public Tribe FindPopulatingTribe() => tribes.FirstOrDefault(x => x.)
+            public Tribe FindPopulatingTribe() => tribes.FirstOrDefault(x => x.IsTribePopulating);
 
             public void AddNewPerson(ulong userId, string userName)
             {
                 var newPerson = new Person(userId, userName);
                 persons.Add(newPerson);
-
-                if (isWorldPopulating)
-                {
-
-                }
             }
 
             private void AddNewTribalMember(Person newPerson)
@@ -272,6 +267,21 @@ namespace Oxide.Plugins
         {
             private const int maxInitialTribalMembers = 4;
 
+            private const int maxInitialMales = 2;
+
+            private const int maxInitialFemales = 2;
+
+            public bool IsTribePopulating => (NumMales < maxInitialMales) && (NumFemales < maxInitialFemales);
+
+            public bool IsMalesPopulating => (NumMales < maxInitialMales);
+
+            public bool IsFemalesPopulating => (NumFemales < maxInitialFemales);
+
+            private int NumMales => members.Count(x => x.Gender == Person.PlayerGender.Male);
+
+            private int NumFemales => members.Count(x => x.Gender == Person.PlayerGender.Female);
+
+
             private string tribeName;
 
             private List<Person> members;
@@ -280,10 +290,6 @@ namespace Oxide.Plugins
             {
                 tribeName = newTribeName;
             }
-
-            private int GetNumMales() => members.Count(x => x.Gender == Person.PlayerGender.Male);
-
-            private int GetNumFemales() => members.Count(x => x.Gender == Person.PlayerGender.Female);
         }
 
         #endregion Tribe Class
