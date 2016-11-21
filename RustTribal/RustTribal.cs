@@ -12,13 +12,12 @@
 
     using Rust;
 
+    using Oxide.Core;
     using UnityEngine.Analytics;
 
 namespace Oxide.Plugins
 {
-    using Oxide.Core;
-
-    using ProtoBuf;
+    using UnityEngine;
 
     [Info("RustTribal", "*Vic", 0.1)]
     [Description("Rust Tribal")]
@@ -145,8 +144,19 @@ namespace Oxide.Plugins
 
             #endregion
 
-            public bool IsPlayerCorrectGender()
+            public bool IsPlayerCorrectGender(Person.PlayerGender gender)
             {
+                if (world.IsWorldPopulating)
+                {
+                    var tribe = world.FindPopulatingTribe();
+
+                    return (gender == Person.PlayerGender.Female && tribe.IsFemalesPopulating)
+                           || (gender == Person.PlayerGender.Male && tribe.IsMalesPopulating);
+                }
+                else
+                {
+                    return false;
+                }
             }
 
             public bool IsPlayerKnown(ulong id)
@@ -199,7 +209,11 @@ namespace Oxide.Plugins
             public bool IsWorldPopulating => tribes.Any(x => x.IsTribePopulating)
                 && tribes.Count < MaxInitialTribes;
 
-            private int ServerPopulationLimit => birthPlaces.Count() + persons.Count(x => x.RPlayer.IsConnected);
+            private int ServerPopulationLimit => birthPlaces.Count() + persons.Count(
+                                                     x =>
+                                                         {
+                                                             return new RustPlayerManager().Connected.Any(r => r.Id == x.Id);
+                                                         });
 
             private List<Person> persons;
 
@@ -215,13 +229,13 @@ namespace Oxide.Plugins
                 AddNewTribe("Bravo");
             }
 
-            public Person FindPersonById(ulong id) => persons.FirstOrDefault(x => x.RPlayer.Id == id.ToString());
+            public Person FindPersonById(ulong id) => persons.FirstOrDefault(x => x.Id == id.ToString());
 
             public Tribe FindPopulatingTribe() => tribes.FirstOrDefault(x => x.IsTribePopulating);
 
             public void AddNewPerson(ulong userId, string userName)
             {
-                var newPerson = new Person(userId, userName);
+                var newPerson = new Person(userId);
                 persons.Add(newPerson);
             }
 
@@ -252,16 +266,33 @@ namespace Oxide.Plugins
             /// <returns>Returns true if authorized, false if rejected</returns>
             public AuthMessage IsClientAuthorized(Connection packet, Game game)
             {
-                AuthMessage authMessage;
+                AuthMessage authMessage = null;
                 var id = packet.userid;
 
-                if (game.IsWorldPopulating)
-
-                else if (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
+                if (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
                 {
                     authMessage = new AuthMessage(
                         AuthMessage.ResponseType.Accepted,
                         "Welcome back to Rust Tribal.");
+                }
+                else if (game.IsWorldPopulating)
+                {
+                    if (game.IsPlayerCorrectGender(
+                            packet.player.gameObject.ToBaseEntity().ToPlayer().playerModel.IsFemale
+                                ? Person.PlayerGender.Female
+                                : Person.PlayerGender.Male))
+                    {
+                        authMessage = new AuthMessage(
+                            AuthMessage.ResponseType.Rejected,
+                            "The game is currently populating the world and "
+                            + "there are too many players of your gender");
+                    }
+                    else
+                    {
+                        authMessage = new AuthMessage(
+                            AuthMessage.ResponseType.Accepted,
+                            "Welcome to Rust Tribal.");
+                    }
                 }
                 else if (game.IsBirthPlaceAvailable())
                 {
@@ -326,18 +357,22 @@ namespace Oxide.Plugins
             //Todo: Set Gender
             public PlayerGender Gender
             {
+                get
+                {
+                    var bPlayer = (BasePlayer)new RustPlayerManager().FindPlayerById(Id).Object;
+                    return bPlayer.playerModel.IsFemale ? PlayerGender.Female : PlayerGender.Male;
+                }
             }
 
             public bool IsAlive { get; private set; }
 
-            public BasePlayer BPlayer { get; private set; }
-            //Todo: Needs testing to understand functionality
-            public RustPlayer RPlayer { get; private set; }
+            public string Id { get; private set; }
 
-            public Person(ulong userId, string userName)
+            //Todo: Needs testing to understand functionality
+
+            public Person(ulong userId)
             {
-                RPlayer = new RustPlayer(userId, userName);
-                var objectaa = (BasePlayer)RPlayer.Object;
+                Id = userId.ToString();
             }
 
             private enum Demeanor
