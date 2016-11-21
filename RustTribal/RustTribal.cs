@@ -146,17 +146,15 @@ namespace Oxide.Plugins
 
             public bool IsPlayerCorrectGender(Person.PlayerGender gender)
             {
-                if (world.IsWorldPopulating)
-                {
-                    var tribe = world.FindPopulatingTribe();
-
-                    return (gender == Person.PlayerGender.Female && tribe.IsFemalesPopulating)
-                           || (gender == Person.PlayerGender.Male && tribe.IsMalesPopulating);
-                }
-                else
+                if (!world.IsWorldPopulating)
                 {
                     return false;
                 }
+
+                var tribe = world.FindPopulatingTribe();
+
+                return (gender == Person.PlayerGender.Female && tribe.IsFemalesPopulating)
+                       || (gender == Person.PlayerGender.Male && tribe.IsMalesPopulating);
             }
 
             public bool IsPlayerKnown(ulong id)
@@ -209,11 +207,8 @@ namespace Oxide.Plugins
             public bool IsWorldPopulating => tribes.Any(x => x.IsTribePopulating)
                 && tribes.Count < MaxInitialTribes;
 
-            private int ServerPopulationLimit => birthPlaces.Count() + persons.Count(
-                                                     x =>
-                                                         {
-                                                             return new RustPlayerManager().Connected.Any(r => r.Id == x.Id);
-                                                         });
+            private int ServerPopulationLimit => birthPlaces.Count() +
+                persons.Count(x => { return new RustPlayerManager().Connected.Any(r => r.Id == x.Id); });
 
             private List<Person> persons;
 
