@@ -24,7 +24,7 @@ namespace Oxide.Plugins
         #region Oxide Members
 
         private ChatMenu chatMenu;
-        private Game game;
+        protected Game game;
         private GateWay gateWay;
 
         #endregion Oxide Members
@@ -69,7 +69,8 @@ namespace Oxide.Plugins
         private void OnServerInitialized()
         {
             Puts("Server init!");
-            game = InitGame();
+            //game = InitGame();
+            game = new Game();
             gateWay = new GateWay();
             chatMenu = new ChatMenu();
             game.Save();
@@ -110,15 +111,14 @@ namespace Oxide.Plugins
         [UsedImplicitly]
         private void HelpChatCommand(BasePlayer player, string command, string[] args)
         {
-                Puts($"{game == null}");
-            chatMenu.HelpCommand(player, command, args);
+            chatMenu.HelpCommand(player, command, args, game);
         }
 
         [ChatCommand("tribe")]
         [UsedImplicitly]
         private void TribeChatCommand(BasePlayer player, string command, string[] args)
         {
-            chatMenu.TribeCommand(player, command, args, game);
+            chatMenu.TribeCommand(player, command, args);
         }
 
         #endregion Oxide Chat Hooks
@@ -137,20 +137,20 @@ namespace Oxide.Plugins
 
             #region Chat Menu Methods
 
-            public void HelpCommand(BasePlayer player, string command, string[] args)
+            public void HelpCommand(BasePlayer player, string command, string[] args, Game game)
             {
                 var message = "Available commands: \n"
-                    + "help \t\t\t Display help.\n"
-                    + "tribe \t\t\t Show tribe information.";
+                    + "help\t\t\t Display help.\n"
+                    + "tribe\t\t\t Show tribe information.";
 
                 SendReply(player, message);
             }
 
-            public void TribeCommand(BasePlayer player, string command, string[] args, Game game)
+            public void TribeCommand(BasePlayer player, string command, string[] args)
             {
                 var helpMessage = "Available commands: \n"
-                    + "tribe -help \t\t\t Displays tribe related options.\n"
-                    + "tribe -name \t\t\t Display name of your tribe.";
+                    + "tribe -help\t\t\t Displays tribe related options.\n"
+                    + "tribe -name\t\t\t Display name of your tribe.";
 
                 if (!args.Any())
                 {
@@ -241,8 +241,8 @@ namespace Oxide.Plugins
 
             public bool IsPlayerKnown(ulong id)
             {
-                world.FindPersonById(id);
-                return false;
+                var person = world.FindPersonById(id);
+                return person != null;
             }
 
             public bool IsBirthPlaceAvailable()
@@ -252,14 +252,8 @@ namespace Oxide.Plugins
 
             public bool IsPlayerAlive(ulong id)
             {
-                var isAlive = false;
                 var player = world.FindPersonById(id);
-                if ((player != null) && player.IsAlive)
-                {
-                    isAlive = true;
-                }
-
-                return isAlive;
+                return (player != null) && player.IsAlive;
             }
 
             public void IncomingPlayer(ulong userId, string userName)
@@ -282,7 +276,7 @@ namespace Oxide.Plugins
 
         #region World Class
 
-        public class World
+        public class World : RustTribal
         {
             private Queue<int> birthPlaces;
 
@@ -292,8 +286,7 @@ namespace Oxide.Plugins
             //Todo: Config Value
             private const int MaxServerPopulation = 50;
 
-            public bool IsWorldPopulating => tribes.Any(x => x.IsTribePopulating)
-                && tribes.Count < MaxInitialTribes;
+            public bool IsWorldPopulating => tribes.Any(x => x.IsTribePopulating);
 
             private int ServerPopulationLimit => birthPlaces.Count() +
                 persons.Count(x => { return new RustPlayerManager().Connected.Any(r => r.Id == x.Id.ToString()); });
@@ -341,7 +334,7 @@ namespace Oxide.Plugins
 
         #region GateWay Class
 
-        public class GateWay
+        public class GateWay : RustTribal
         {
             /// <summary>
             /// Determines if a client may connect or not
@@ -351,22 +344,25 @@ namespace Oxide.Plugins
             /// <returns>Returns true if authorized, false if rejected</returns>
             public AuthMessage IsClientAuthorized(Connection packet, Game game)
             {
-                AuthMessage authMessage = null;
+                AuthMessage authMessage;
                 var id = packet.userid;
 
                 if (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
                 {
+                    Puts("Player known and player alive");
                     authMessage = new AuthMessage(
                         AuthMessage.ResponseType.Accepted,
                         "Welcome back to Rust Tribal.");
                 }
                 else if (game.IsWorldPopulating)
                 {
+                    Puts("Game is populating");
                     if (game.IsPlayerCorrectGender(
                             packet.player.gameObject.ToBaseEntity().ToPlayer().playerModel.IsFemale
                                 ? Person.PlayerGender.Female
                                 : Person.PlayerGender.Male))
                     {
+                        Puts("In correct gender condition");
                         authMessage = new AuthMessage(
                             AuthMessage.ResponseType.Rejected,
                             "The game is currently populating the world and "
@@ -374,6 +370,7 @@ namespace Oxide.Plugins
                     }
                     else
                     {
+                        Puts("Not correct gender");
                         authMessage = new AuthMessage(
                             AuthMessage.ResponseType.Accepted,
                             "Welcome to Rust Tribal.");
