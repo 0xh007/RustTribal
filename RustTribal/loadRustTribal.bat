@@ -1,0 +1,1 @@
+copy C:\RustDev\RustTribal\RustTribal\RustTribal.cs C:\RustDev\rustserver\server\rust_tribal_testing\oxide\plugins\RustTribal.cs

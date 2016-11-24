@@ -1,4 +1,3 @@
-
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -18,7 +17,6 @@
 
 namespace Oxide.Plugins
 {
-
     [Info("RustTribal", "*Vic", 0.1)]
     [Description("Rust Tribal")]
     public class RustTribal : RustPlugin
@@ -108,10 +106,19 @@ namespace Oxide.Plugins
 
         #region Oxide Chat Hooks
 
-        [ChatCommand("test")]
-        private void Testing(BasePlayer player, string command, string[] args)
+        [ChatCommand("help")]
+        [UsedImplicitly]
+        private void HelpChatCommand(BasePlayer player, string command, string[] args)
         {
-            chatMenu.TestChat(player, command, args);
+                Puts($"{game == null}");
+            chatMenu.HelpCommand(player, command, args);
+        }
+
+        [ChatCommand("tribe")]
+        [UsedImplicitly]
+        private void TribeChatCommand(BasePlayer player, string command, string[] args)
+        {
+            chatMenu.TribeCommand(player, command, args, game);
         }
 
         #endregion Oxide Chat Hooks
@@ -120,10 +127,61 @@ namespace Oxide.Plugins
 
         public class ChatMenu : RustTribal
         {
-            public void TestChat(BasePlayer player, string command, string[] args)
+            #region Chat Menu Members
+
+            #endregion Chat Menu Members
+
+            #region Chat Menu Constructors
+
+            #endregion Chat Menu Constructors
+
+            #region Chat Menu Methods
+
+            public void HelpCommand(BasePlayer player, string command, string[] args)
             {
-                SendReply(player, "It worked.");
+                var message = "Available commands: \n"
+                    + "help \t\t\t Display help.\n"
+                    + "tribe \t\t\t Show tribe information.";
+
+                SendReply(player, message);
             }
+
+            public void TribeCommand(BasePlayer player, string command, string[] args, Game game)
+            {
+                var helpMessage = "Available commands: \n"
+                    + "tribe -help \t\t\t Displays tribe related options.\n"
+                    + "tribe -name \t\t\t Display name of your tribe.";
+
+                if (!args.Any())
+                {
+                    SendReply(player, helpMessage);
+                    return;
+                }
+
+                switch (args[0])
+                {
+                    case "-help":
+                        {
+                            SendReply(player, helpMessage);
+                            break;
+                        }
+                    case "-name":
+                        {
+                            var tribeName = game.FindTribeNameByPersonId(player.userID);
+                            var nameMessage = $"Tribe Name: {tribeName}";
+                            SendReply(player, nameMessage);
+                            break;
+                        }
+
+                    default:
+                        {
+                            break;
+                        }
+
+                }
+            }
+
+            #endregion Chat Menu Methods
         }
 
         #endregion Chat Menu Class
@@ -212,6 +270,12 @@ namespace Oxide.Plugins
                     world.AddNewPerson(userId, userName);
                 }
             }
+
+            public string FindTribeNameByPersonId(ulong userId)
+            {
+                var name = world.FindTribeNameByPersonId(userId);
+                return name == string.Empty ? "None" : name;
+            }
         }
 
         #endregion Game Class
@@ -232,7 +296,7 @@ namespace Oxide.Plugins
                 && tribes.Count < MaxInitialTribes;
 
             private int ServerPopulationLimit => birthPlaces.Count() +
-                persons.Count(x => { return new RustPlayerManager().Connected.Any(r => r.Id == x.Id); });
+                persons.Count(x => { return new RustPlayerManager().Connected.Any(r => r.Id == x.Id.ToString()); });
 
             private List<Person> persons;
 
@@ -248,7 +312,7 @@ namespace Oxide.Plugins
                 AddNewTribe("Bravo");
             }
 
-            public Person FindPersonById(ulong id) => persons.FirstOrDefault(x => x.Id == id.ToString());
+            public Person FindPersonById(ulong id) => persons.FirstOrDefault(x => x.Id == id);
 
             public Tribe FindPopulatingTribe() => tribes.FirstOrDefault(x => x.IsTribePopulating);
 
@@ -265,6 +329,11 @@ namespace Oxide.Plugins
                 var newTribe = new Tribe(newTribeName);
                 tribes.Add(newTribe);
             }
+
+            public string FindTribeNameByPersonId(ulong userId) => tribes
+                .Where(x => x.IsPersonInTribe(userId))
+                .Select(r => r.TribeName)
+                .FirstOrDefault();
 
         }
 
@@ -352,20 +421,22 @@ namespace Oxide.Plugins
 
             private int NumFemales => members.Count(x => x.Gender == Person.PlayerGender.Female);
 
-            private string tribeName;
+            public string TribeName { get; private set; }
 
             private List<Person> members;
 
             public Tribe(string newTribeName)
             {
                 members = new List<Person>();
-                tribeName = newTribeName;
+                TribeName = newTribeName;
             }
 
             public void AddNewMember(Person newMember)
             {
                 members.Add(newMember);
             }
+
+            public bool IsPersonInTribe(ulong userId) => members.Any(x => x.Id == userId);
         }
 
         #endregion Tribe Class
@@ -381,20 +452,20 @@ namespace Oxide.Plugins
             {
                 get
                 {
-                    var bPlayer = (BasePlayer)new RustPlayerManager().FindPlayerById(Id).Object;
+                    var bPlayer = (BasePlayer)new RustPlayerManager().FindPlayerById(Id.ToString()).Object;
                     return bPlayer.playerModel.IsFemale ? PlayerGender.Female : PlayerGender.Male;
                 }
             }
 
             public bool IsAlive { get; private set; }
 
-            public string Id { get; private set; }
+            public ulong Id { get; private set; }
 
             //Todo: Needs testing to understand functionality
 
             public Person(ulong userId)
             {
-                Id = userId.ToString();
+                Id = userId;
             }
 
             private enum Demeanor
