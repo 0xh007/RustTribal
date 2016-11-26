@@ -1,4 +1,3 @@
-    using System;
     using System.Collections.Generic;
     using System.Linq;
 
@@ -9,18 +8,31 @@
     using Oxide.Game.Rust.Libraries.Covalence;
 
 
-    using UnityEngine;
-
-    using Oxide.Core.Libraries.Covalence;
+namespace Oxide.Plugins
+{
+    using System;
 
     using Oxide.Core;
 
-namespace Oxide.Plugins
-{
+    using Random = UnityEngine.Random;
+
     [Info("RustTribal", "*Vic", 0.1)]
     [Description("Rust Tribal")]
     public class RustTribal : RustPlugin
     {
+        #region Rust Tribal Static Methods
+
+        private static float GetRandomFloatBasedOnUserId(ulong userId, ulong seed)
+        {
+            var state = Random.state;
+            Random.InitState((int)(seed + userId));
+            var num = Random.Range(0f, 1f);
+            Random.state = state;
+            return num;
+        }
+
+        #endregion Rust Tribal Static Methods
+
         #region Oxide Members
 
         private ChatMenu chatMenu;
@@ -118,7 +130,7 @@ namespace Oxide.Plugins
         [UsedImplicitly]
         private void TribeChatCommand(BasePlayer player, string command, string[] args)
         {
-            chatMenu.TribeCommand(player, command, args);
+            chatMenu.TribeCommand(player, command, args, game);
         }
 
         #endregion Oxide Chat Hooks
@@ -146,7 +158,7 @@ namespace Oxide.Plugins
                 SendReply(player, message);
             }
 
-            public void TribeCommand(BasePlayer player, string command, string[] args)
+            public void TribeCommand(BasePlayer player, string command, string[] args, Game game)
             {
                 var helpMessage = "Available commands: \n"
                     + "tribe -help\t\t\t Displays tribe related options.\n"
@@ -314,6 +326,7 @@ namespace Oxide.Plugins
                 var newPerson = new Person(userId);
                 persons.Add(newPerson);
                 //Todo: Add logging here
+                Puts($"Adding member to {FindPopulatingTribe().TribeName}");
                 FindPopulatingTribe().AddNewMember(newPerson);
             }
 
@@ -344,7 +357,7 @@ namespace Oxide.Plugins
             /// <returns>Returns true if authorized, false if rejected</returns>
             public AuthMessage IsClientAuthorized(Connection packet, Game game)
             {
-                AuthMessage authMessage;
+                AuthMessage authMessage = null;
                 var id = packet.userid;
 
                 if (game.IsPlayerKnown(id) && game.IsPlayerAlive(id))
@@ -356,24 +369,26 @@ namespace Oxide.Plugins
                 }
                 else if (game.IsWorldPopulating)
                 {
-                    Puts("Game is populating");
-                    if (game.IsPlayerCorrectGender(
-                            packet.player.gameObject.ToBaseEntity().ToPlayer().playerModel.IsFemale
-                                ? Person.PlayerGender.Female
-                                : Person.PlayerGender.Male))
+                    Puts("World is populating");
+                    var gender = GetGenderByUserId(id);
+                    if (game.IsPlayerCorrectGender(gender))
                     {
-                        Puts("In correct gender condition");
+                        Puts("Passed gender checks");
                         authMessage = new AuthMessage(
-                            AuthMessage.ResponseType.Rejected,
-                            "The game is currently populating the world and "
-                            + "there are too many players of your gender");
+                            AuthMessage.ResponseType.Accepted,
+                            "Welcome to Rust Tribal");
                     }
                     else
                     {
-                        Puts("Not correct gender");
-                        authMessage = new AuthMessage(
-                            AuthMessage.ResponseType.Accepted,
-                            "Welcome to Rust Tribal.");
+                        var oppositeGender =
+                            gender == Person.PlayerGender.Female
+                            ? "male"
+                            : "female";
+                        var message = $"Your character's gender is {gender}."
+                                      + $"The game world is still populating and requires"
+                                      + $"more {oppositeGender} players";
+
+                        authMessage = new AuthMessage(AuthMessage.ResponseType.Rejected, message);
                     }
                 }
                 else if (game.IsBirthPlaceAvailable())
@@ -390,6 +405,13 @@ namespace Oxide.Plugins
                 }
 
                 return authMessage;
+            }
+
+
+            private Person.PlayerGender GetGenderByUserId(ulong userId)
+            {
+                var isFemale = !(GetRandomFloatBasedOnUserId(userId, 0x10ecL) <= .5f);
+                return isFemale ? Person.PlayerGender.Female : Person.PlayerGender.Male;
             }
         }
 
@@ -421,6 +443,14 @@ namespace Oxide.Plugins
             public string TribeName { get; private set; }
 
             private List<Person> members;
+
+            public List<Person> Members
+            {
+                get
+                {
+                    return members;
+                }
+            }
 
             public Tribe(string newTribeName)
             {
